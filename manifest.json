@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "LinkedIn Reference Checker",
+  "name": "Cross Reference Checker",
   "version": "1.0.0",
-  "description": "Store and cross-reference LinkedIn profiles for internal reference checking",
+  "description": "Store and cross-reference work experience through linkedin profiles for internal reference checking",
   "permissions": [
     "storage",
     "activeTab",
