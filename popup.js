@@ -47,7 +47,30 @@ document.addEventListener('DOMContentLoaded', function() {
       )
     ).size;
     
-    stats.textContent = `${totalProfiles} profiles saved | ${totalCompanies} companies`;
+    const totalNotesCount = Object.values(allNotes).reduce((acc, notes) => {
+      return acc + (Array.isArray(notes) ? notes.length : 0);
+    }, 0);
+    
+    stats.textContent = `${totalProfiles} profiles saved | ${totalCompanies} companies | ${totalNotesCount} notes`;
+  }
+
+  // Get preview of notes for a profile
+  function getNotesPreview(profileUrl) {
+    const notes = allNotes[profileUrl];
+    if (!notes || !Array.isArray(notes) || notes.length === 0) return null;
+    
+    // Get the most recent note
+    const sortedNotes = [...notes].sort((a, b) => 
+      new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+    );
+    
+    const recentNote = sortedNotes[0];
+    const preview = recentNote.content.trim().split('\n')[0].substring(0, 100);
+    
+    return {
+      preview: preview + (preview.length >= 100 ? '...' : ''),
+      count: notes.length
+    };
   }
 
   // Display profiles
@@ -58,8 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     profilesList.innerHTML = profiles.map((profile, index) => {
-      const hasNotes = allNotes[profile.profileUrl] ? true : false;
-      const notesText = allNotes[profile.profileUrl] || '';
+      const notesInfo = getNotesPreview(profile.profileUrl);
       
       return `
       <div class="profile-card">
@@ -67,10 +89,12 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="${profile.profileUrl}" target="_blank" class="view-profile-btn">View Profile</a>
         <div class="profile-name">${profile.name || 'Unknown'}</div>
         <div class="profile-title">${profile.currentTitle || 'No title'}</div>
-        ${hasNotes ? `
+        ${notesInfo ? `
           <div style="margin-top: 8px; padding: 8px; background: #f0f7ff; border-left: 3px solid #0077b5; border-radius: 2px;">
-            <div style="font-size: 12px; color: #0077b5; font-weight: bold; margin-bottom: 4px;">Notes:</div>
-            <div style="font-size: 13px; color: #333; white-space: pre-wrap;">${notesText.length > 150 ? notesText.substring(0, 150) + '...' : notesText}</div>
+            <div style="font-size: 12px; color: #0077b5; font-weight: bold; margin-bottom: 4px;">
+              Notes (${notesInfo.count}):
+            </div>
+            <div style="font-size: 13px; color: #333;">${notesInfo.preview}</div>
           </div>
         ` : ''}
         <div style="margin-top: 8px; font-size: 13px; color: #666;">
@@ -97,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
       btn.addEventListener('click', (e) => {
         const profileUrl = e.target.dataset.url;
         
-        if (confirm('Delete this profile and its notes?')) {
+        if (confirm('Delete this profile and all its notes?')) {
           chrome.storage.local.get(['profiles', 'notes'], (result) => {
             const profilesObj = result.profiles || {};
             const notesObj = result.notes || {};
@@ -131,7 +155,12 @@ document.addEventListener('DOMContentLoaded', function() {
         (exp.company || '').toLowerCase().includes(query) || 
         (exp.title || '').toLowerCase().includes(query)
       );
-      const notesMatch = (allNotes[profile.profileUrl] || '').toLowerCase().includes(query);
+      
+      // Search in notes
+      const profileNotes = allNotes[profile.profileUrl] || [];
+      const notesMatch = profileNotes.some(note => 
+        (note.content || '').toLowerCase().includes(query)
+      );
       
       return nameMatch || titleMatch || companyMatch || notesMatch;
     });
@@ -147,18 +176,24 @@ document.addEventListener('DOMContentLoaded', function() {
         (exp.title || '').toLowerCase().includes(query)
       );
       
-      const notesText = allNotes[profile.profileUrl] || '';
-      const notesMatch = notesText.toLowerCase().includes(query);
+      const profileNotes = allNotes[profile.profileUrl] || [];
+      const matchingNotes = profileNotes.filter(note =>
+        (note.content || '').toLowerCase().includes(query)
+      );
 
       return `
         <div class="profile-card">
           <a href="${profile.profileUrl}" target="_blank" class="view-profile-btn">View Profile</a>
           <div class="profile-name">${highlightMatch(profile.name || 'Unknown', query)}</div>
           <div class="profile-title">${highlightMatch(profile.currentTitle || '', query)}</div>
-          ${notesMatch && notesText ? `
+          ${matchingNotes.length > 0 ? `
             <div style="margin-top: 8px; padding: 8px; background: #f0f7ff; border-left: 3px solid #0077b5; border-radius: 2px;">
-              <div style="font-size: 12px; color: #0077b5; font-weight: bold; margin-bottom: 4px;">Notes:</div>
-              <div style="font-size: 13px; color: #333;">${highlightMatch(notesText.substring(0, 150), query)}${notesText.length > 150 ? '...' : ''}</div>
+              <div style="font-size: 12px; color: #0077b5; font-weight: bold; margin-bottom: 4px;">Matching Notes:</div>
+              ${matchingNotes.slice(0, 2).map(note => {
+                const preview = note.content.substring(0, 150);
+                return `<div style="font-size: 13px; color: #333; margin-bottom: 4px;">${highlightMatch(preview, query)}${note.content.length > 150 ? '...' : ''}</div>`;
+              }).join('')}
+              ${matchingNotes.length > 2 ? `<div style="font-size: 12px; color: #666;">...and ${matchingNotes.length - 2} more</div>` : ''}
             </div>
           ` : ''}
           ${matchingExperiences.length > 0 ? `
