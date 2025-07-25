@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', function() {
       return `
       <div class="profile-card">
         <button class="delete-btn" data-url="${profile.profileUrl}">Delete</button>
-        <a href="${profile.profileUrl}" target="_blank" class="view-profile-btn">View Profile</a>
+        <a href="${profile.profileUrl}" target="_blank" class="view-profile-btn" style="margin-right: 8px; text-decoration: none;">View Profile</a>
         <div class="profile-name">${profile.name || 'Unknown'}</div>
         <div class="profile-title">${profile.currentTitle || 'No title'}</div>
         ${notesInfo ? `
